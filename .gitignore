@@ -1,16 +1,21 @@
-# Credenciales de Firebase (¡NUNCA SUBIR A GITHUB!)
-firebase_credentials.json
+# --- Credenciales de Firebase (¡CRÍTICO PARA QUE NO TE BLOQUEE GITHUB!) ---
+serviceAccountKey.json
 
-# Archivos de compilación de Visual Studio y MASM
+# --- Estado local del juego (se sincroniza por Firebase, no por Git) ---
+game_state.json
+
+# --- Visual Studio y MASM (Archivos de compilación y basura) ---
 .vs/
+x64/
 Debug/
 Release/
-x64/
 *.obj
 *.exe
-*.pdb
 *.ilk
+*.pdb
+*.idb
+*.ipch
 
-# Caché de Python
+# --- Python ---
 __pycache__/
 *.pyc

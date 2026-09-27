@@ -1,94 +1,85 @@
+import os
 import json
 import time
-import os
-from datetime import datetime
+import firebase_admin
+from firebase_admin import credentials, db
 
-# Archivo de intercambio definido en el ADR-03
+# --- CONFIGURACIÓN DE FIREBASE ---
+# Asegúrate de que el archivo JSON con tus credenciales de servicio 
+# esté en la misma carpeta y se llame exactamente así (o cambia el nombre).
+CREDENTIAL_FILE = "serviceAccountKey.json"
+DATABASE_URL = "https://chesskys-default-rtdb.firebaseio.com/"
+
+if not firebase_admin._apps:
+    cred = credentials.Certificate(CREDENTIAL_FILE)
+    firebase_admin.initialize_app(cred, {
+        'databaseURL': DATABASE_URL
+    })
+
+db_ref = db.reference('arChess/gameState')
+
 STATE_FILE = "game_state.json"
+last_local_mtime = 0
 
-def get_initial_state():
-    """Genera el estado inicial basado en la estructura de arChess 4.0."""
-    return {
-        "gameId": "chess_room_01",
-        "version": 0,
-        "turn": "w",
-        "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq 01",
-        "lastMove": "",
-        "updatedAt": datetime.utcnow().isoformat() + "Z",
-        "status": "ongoing"
-    }
-
-def read_local_state():
-    """Lee el archivo JSON que modifica el cliente MASM."""
-    if not os.path.exists(STATE_FILE):
-        initial = get_initial_state()
-        write_local_state(initial)
-        return initial
-        
+def push_local_to_firebase(file_path):
+    """Lee el game_state.json local y lo sube a Firebase"""
     try:
-        with open(STATE_FILE, 'r') as f:
-            return json.load(f)
-    except json.JSONDecodeError:
-        # Prevención de crasheos si MASM está escribiendo el archivo en este instante
-        return None
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            db_ref.set(data)
+            print("[SYNC] Movimiento local subido a Firebase exitosamente.")
+    except Exception as e:
+        print(f"[ERROR] No se pudo subir a Firebase: {e}")
 
-def write_local_state(state):
-    """Escribe el estado actualizado para que el cliente MASM lo lea (Polling)."""
-    with open(STATE_FILE, 'w') as f:
-        json.dump(state, f, indent=2)
-
-def fetch_cloud_state(game_id):
-    """
-    Aquí conectas tu base de datos (Supabase / Firebase).
-    Debe retornar el JSON de la partida desde la nube.
-    """
-    # Ejemplo de cómo se vería con Supabase:
-    # response = supabase.table('partidas').select('*').eq('gameId', game_id).execute()
-    # return response.data[0] if response.data else None
-    
-    return None # Simulado por ahora
-
-def update_cloud_state(state):
-    """
-    Sube el nuevo movimiento/estado validado por MASM a la nube.
-    """
-    # Ejemplo con Supabase:
-    # supabase.table('partidas').upsert(state).execute()
-    
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] Nube actualizada a la versión {state['version']} - Último mov: {state.get('lastMove', 'N/A')}")
+def pull_firebase_to_local(event):
+    """Callback: Detecta cambios en Firebase y actualiza el archivo local"""
+    try:
+        global last_local_mtime
+        remote_data = event.data
+        if remote_data:
+            with open(STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(remote_data, f, indent=4)
+            # Actualizamos la marca de tiempo para evitar loops infinitos locales
+            last_local_mtime = os.path.getmtime(STATE_FILE)
+            print("[SYNC] ¡Nuevo movimiento del rival descargado desde Firebase!")
+    except Exception as e:
+        print(f"[ERROR] No se pudo sincronizar desde Firebase: {e}")
 
 def main():
-    print("=== Servicio de Sincronización arChess 4.0 ===")
-    print(f"Monitoreando {STATE_FILE}...")
+    global last_local_mtime
+    print("=== Servicio de Sincronización arChess 4.0 (Firebase) ===")
     
-    local_state = read_local_state()
-    last_known_version = local_state["version"] if local_state else -1
+    # Asegurar que el archivo local exista inicialmente
+    if not os.path.exists(STATE_FILE):
+        initial_data = {"turn": 0, "move": "start"}
+        with open(STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(initial_data, f, indent=4)
 
+    last_local_mtime = os.path.getmtime(STATE_FILE)
+
+    # Escuchar cambios remotos en tiempo real desde Firebase
+    db_ref.listen(pull_firebase_to_local)
+
+    print("Monitoreando game_state.json y Firebase en tiempo real...\n")
+
+    # Bucle principal para detectar cambios locales hechos por el Ensamblador
     while True:
         try:
-            # 1. Leer el estado actual del archivo local (modificado por MASM)
-            current_local = read_local_state()
-            
-            if current_local:
-                # Si MASM incrementó la versión (el jugador local hizo un movimiento válido)
-                if current_local["version"] > last_known_version:
-                    update_cloud_state(current_local)
-                    last_known_version = current_local["version"]
-            
-            # 2. Consultar a la nube si el rival hizo un movimiento
-            cloud_state = fetch_cloud_state("chess_room_01")
-            
-            if cloud_state and cloud_state["version"] > last_known_version:
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] Movimiento del rival detectado. Actualizando MASM...")
-                write_local_state(cloud_state)
-                last_known_version = cloud_state["version"]
-
-            # Pausa de 500ms a 1s según el ADR-03 para evitar sobrecarga de I/O
-            time.sleep(1) 
-
+            if os.path.exists(STATE_FILE):
+                current_mtime = os.path.getmtime(STATE_FILE)
+                if current_mtime != last_local_mtime:
+                    # El archivo cambió localmente (hiciste un movimiento en ASM)
+                    time.sleep(0.1) # Pequeña pausa para asegurar escritura completa
+                    push_local_to_firebase(STATE_FILE)
+                    last_local_mtime = os.path.getmtime(STATE_FILE)
+        except KeyboardInterrupt:
+            print("\nSaliendo del sincronizador...")
+            break
         except Exception as e:
-            print(f"Error en el ciclo de sincronización: {e}")
-            time.sleep(2)
+            print(f"[AVISO] Esperando estabilidad en archivo local: {e}")
+        
+        time.sleep(0.5)
 
 if __name__ == "__main__":
     main()
