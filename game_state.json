@@ -1,0 +1,9 @@
+{
+  "gameId": "chess_room_01",
+  "version": 0,
+  "turn": "w",
+  "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq 01",
+  "lastMove": "",
+  "updatedAt": "2026-09-27T18:39:46.346121Z",
+  "status": "ongoing"
+}

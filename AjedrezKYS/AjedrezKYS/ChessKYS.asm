@@ -1,50 +1,92 @@
 INCLUDE Irvine32.inc
 
 .data
-    ; ADR-01: Vector Lineal de 64 Posiciones (1D Array de bytes)
-    ; 0-63 representan las casillas (0 = a8, 63 = h1, por ejemplo)
-    board BYTE 64 DUP(0) 
+    ; Mensajes de la interfaz de usuario
+    msgTitulo           BYTE "=== arChess 4.0 ===", 13, 10, 0
+    msgMovRival         BYTE "--- Movimiento del rival actualizado ---", 13, 10, 0
+    msgSiguienteMov     BYTE "Tu siguiente movimiento será (ej. e2e4): ", 0
+    msgTurnoBlanca      BYTE "Turno: Blancas (PC)", 13, 10, 0
+    msgTurnoNegra       BYTE "Turno: Negras (Laptop)", 13, 10, 0
+    msgErrorTurno       BYTE "Error: No es tu turno o jugada inválida.", 13, 10, 0
 
-    ; Mensajes de la interfaz (ui_console)
-    msgTitulo BYTE "=== arChess 4.0 ===", 13, 10, 0
-    msgAutores BYTE "Desarrolladores: Santiago, Kenneth y Yamil", 13, 10, 13, 10, 0
-    msgPrompt BYTE "Ingrese movimiento (ej. e2e4): ", 0
-    
-    ; Búfer para leer el teclado
+    ; Matriz del tablero y control
+    board BYTE 64 DUP(0)
+    currentTurn BYTE 0        ; 0 = Blancas, 1 = Negras
     bufferEntrada BYTE 10 DUP(0)
 
 .code
 main PROC
-    ; Limpiar la consola y mostrar encabezado
     call Clrscr
-    mov edx, OFFSET msgTitulo
-    call WriteString
-    mov edx, OFFSET msgAutores
-    call WriteString
-
-    ; Aquí invocaremos la inicialización de las piezas (board.asm)
-    ; call SetupBoard
+    call SetupBoard
 
 GameLoop:
-    ; Aquí invocaremos el dibujo del tablero (ui_console.asm)
-    ; call DrawBoard
+    ; 1. Limpiar la pantalla en cada turno / actualización
+    call Clrscr
 
-    ; Solicitar entrada al jugador
-    mov edx, OFFSET msgPrompt
+    ; 2. Mostrar título de la aplicación
+    mov edx, OFFSET msgTitulo
+    call WriteString
+
+    ; 3. Verificar si el rival acaba de mover (leyendo el estado sincronizado)
+    ; Aquí puedes evaluar una bandera o comparar el estado con el JSON de Firebase
+    call CheckRivalMove       
+    cmp al, 1                 ; Si el rival movió, mostramos su aviso
+    jne MostrarTurnoPropio
+    
+    mov edx, OFFSET msgMovRival
+    call WriteString
+
+MostrarTurnoPropio:
+    ; 4. Mostrar de quién es el turno actual
+    mov al, currentTurn
+    cmp al, 0
+    jne TurnoNegrasLabel
+    mov edx, OFFSET msgTurnoBlanca
+    call WriteString
+    jmp DibujarTableroUI
+
+TurnoNegrasLabel:
+    mov edx, OFFSET msgTurnoNegra
+    call WriteString
+
+DibujarTableroUI:
+    ; 5. Dibujar el tablero con emojis (♙, ♖, ♘, ♗, ♕, ♔, ♟, etc.) y coordenadas
+    call DrawBoard
+
+    ; 6. Solicitar la entrada con el formato exacto requerido
+    mov edx, OFFSET msgSiguienteMov
     call WriteString
 
     mov edx, OFFSET bufferEntrada
     mov ecx, SIZEOF bufferEntrada
     call ReadString
 
-    ; Aquí invocaremos la lógica de validación (move_validator.asm)
-    ; y la sincronización remota (sync_manager.asm)
+    ; 7. Validar movimiento, reglas, y actualizar archivo JSON para el sync_manager.py
+    call ProcessMove
 
-    ; Salto de línea y reiniciar el ciclo
-    call Crlf
     jmp GameLoop
 
     exit
 main ENDP
+
+SetupBoard PROC
+    ret
+SetupBoard ENDP
+
+DrawBoard PROC
+    ; Lógica para pintar filas (8 a 1), columnas (a-h) y traducir IDs a emojis
+    ret
+SetupBoard ENDP
+
+CheckRivalMove PROC
+    ; Compara con el game_state.json si la laptop/PC contraria realizó un cambio
+    mov al, 0 
+    ret
+CheckRivalMove ENDP
+
+ProcessMove PROC
+    ; Valida reglas de piezas (Caballo en L, peón al frente, enroque, jaquemate)
+    ret
+ProcessMove ENDP
 
 END main
