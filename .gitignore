@@ -1,0 +1,16 @@
+# Credenciales de Firebase (¡NUNCA SUBIR A GITHUB!)
+firebase_credentials.json
+
+# Archivos de compilación de Visual Studio y MASM
+.vs/
+Debug/
+Release/
+x64/
+*.obj
+*.exe
+*.pdb
+*.ilk
+
+# Caché de Python
+__pycache__/
+*.pyc

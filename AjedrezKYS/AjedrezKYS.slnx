@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="AjedrezKYS/AjedrezKYS.vcxproj" Id="729caf8a-a8b0-4fc9-952b-358f921beb4c" />
+</Solution>
