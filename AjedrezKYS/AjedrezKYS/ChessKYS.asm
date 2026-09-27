@@ -27,10 +27,9 @@ GameLoop:
     mov edx, OFFSET msgTitulo
     call WriteString
 
-    ; 3. Verificar si el rival acaba de mover (leyendo el estado sincronizado)
-    ; Aquí puedes evaluar una bandera o comparar el estado con el JSON de Firebase
+    ; 3. Verificar si el rival acaba de mover
     call CheckRivalMove       
-    cmp al, 1                 ; Si el rival movió, mostramos su aviso
+    cmp al, 1                 
     jne MostrarTurnoPropio
     
     mov edx, OFFSET msgMovRival
@@ -50,10 +49,10 @@ TurnoNegrasLabel:
     call WriteString
 
 DibujarTableroUI:
-    ; 5. Dibujar el tablero con emojis (♙, ♖, ♘, ♗, ♕, ♔, ♟, etc.) y coordenadas
+    ; 5. Dibujar el tablero con emojis y coordenadas
     call DrawBoard
 
-    ; 6. Solicitar la entrada con el formato exacto requerido
+    ; 6. Solicitar la entrada con el formato requerido
     mov edx, OFFSET msgSiguienteMov
     call WriteString
 
@@ -61,7 +60,7 @@ DibujarTableroUI:
     mov ecx, SIZEOF bufferEntrada
     call ReadString
 
-    ; 7. Validar movimiento, reglas, y actualizar archivo JSON para el sync_manager.py
+    ; 7. Validar movimiento y sincronizar
     call ProcessMove
 
     jmp GameLoop
@@ -74,18 +73,15 @@ SetupBoard PROC
 SetupBoard ENDP
 
 DrawBoard PROC
-    ; Lógica para pintar filas (8 a 1), columnas (a-h) y traducir IDs a emojis
     ret
-SetupBoard ENDP
+DrawBoard ENDP
 
 CheckRivalMove PROC
-    ; Compara con el game_state.json si la laptop/PC contraria realizó un cambio
     mov al, 0 
     ret
 CheckRivalMove ENDP
 
 ProcessMove PROC
-    ; Valida reglas de piezas (Caballo en L, peón al frente, enroque, jaquemate)
     ret
 ProcessMove ENDP
 
